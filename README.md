@@ -12,7 +12,10 @@ LLM through one seam (litellm); ADK and Phoenix are optional extras.
 > **Scope (read this).** This is a **generic, provider-neutral offline eval
 > library** — **not a live agent-runtime harness.** It grades responses you
 > capture from *any* agent; it does not execute the agent, manage a live
-> session/ADK runtime, talk to a model gateway, or checkpoint batch runs. It
+> session/ADK runtime, manage a proprietary/live runtime gateway, or checkpoint
+> batch runs. (It *can* call a provider directly via `LiteLLMClient` for the
+> LLM-judge path — that's a single outbound completion call, not a managed
+> gateway.) It
 > ships **no** vendor coupling. You bring the transcript (directly or via the
 > session adapter in §17); it brings the evaluators, judges, reliability stats,
 > runner, and reporting.
@@ -22,7 +25,7 @@ LLM through one seam (litellm); ADK and Phoenix are optional extras.
 | Concern | Upstream live-session / ADK harness | **This framework (offline)** |
 |---|---|---|
 | Run the agent live, manage session/ADK state | ✅ | ❌ (out of scope) |
-| Model gateway, auth, rate limits, checkpointed batch execution | ✅ | ❌ |
+| Proprietary/live runtime gateway, auth, rate limits, checkpointed batch execution | ✅ | ❌ |
 | Score frozen transcripts, deterministic + LLM-judge | partial | ✅ |
 | Reporting with confidence intervals | partial | ✅ |
 | Judge reliability stats (κ, confusion, agreement) | — | ✅ |
@@ -121,11 +124,15 @@ model string (see §9). `models/` depends on nothing; `model_clients/` is
 4. **Report** buckets rows → pass-rate per `metric` / `kind` / `lang`, each with a
    **Wilson 95% CI** so `3/4 passed` reads as *wide and uncertain*, not solid.
 
-Result row shape (what the report aggregates):
+Result row shape (what the report aggregates). `details` is a representative
+summary (first failing invocation, else first); `per_invocation` is the **full
+audit trail** — one entry per turn — preserved in the JSON report:
 
 ```json
 {"id": "route-billing", "metric": "label_match", "kind": "routing",
- "lang": "all", "success": true, "score": 1.0}
+ "lang": "all", "success": true, "score": 1.0,
+ "details": {"actual": "Billing"},
+ "per_invocation": [{"score": 1.0, "passed": true, "actual": "Billing"}]}
 ```
 
 ---
@@ -201,7 +208,7 @@ deterministic code — catch quality drops *before* they ship.
 
 ```yaml
 # offline gate — no keys, runs on every PR
-- run: uv run python -m pytest                      # framework's own 55 tests
+- run: uv run python -m pytest                      # framework's own 108 tests
 - run: uv run eval-harness run --config suite.yaml --output-dir results
 - run: |
     uv run python - <<'PY'
@@ -267,7 +274,7 @@ required (it's a `Protocol`).
 # install (dev tools: pytest, ruff, mypy)
 uv sync --extra dev
 
-# OFFLINE — no keys, CI-safe: the framework's own test suite (55 tests)
+# OFFLINE — no keys, CI-safe: the framework's own test suite (108 tests)
 uv run python -m pytest
 
 # OFFLINE — shipped examples (deterministic, no LLM call)
@@ -388,7 +395,7 @@ examples/
 │                                             #   retrieved context, tool calls, judge configs)
 └── reliability/                              # human_vs_judge.json + reliability_demo.py (kappa gate)
 
-tests/                       # 106 tests, one suite per module (TDD)
+tests/                       # 108 tests, one suite per module (TDD)
 docs/implementation/design.md
 ```
 
@@ -447,7 +454,7 @@ class MaxLengthEvaluator(Evaluator):
 Built strictly test-first (TDD) — every flow has a test written before the code.
 
 ```bash
-uv run python -m pytest        # 106 tests, all green
+uv run python -m pytest        # 108 tests, all green
 uv run ruff check src tests    # lint (clean)
 uv run ruff format src tests   # format
 uv run mypy src                # types (no issues)

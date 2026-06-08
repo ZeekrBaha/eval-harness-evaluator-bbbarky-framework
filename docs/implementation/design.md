@@ -10,8 +10,10 @@ naming or vendor coupling.
 
 This is a **generic, provider-neutral, offline evaluation library**. It is **not**
 a live agent-runtime harness: it does not execute the agent, manage a live
-session/ADK runtime, talk to a model gateway, or checkpoint batch execution.
-Those responsibilities belong to an upstream live-session/ADK harness.
+session/ADK runtime, manage a proprietary/live runtime gateway, or checkpoint
+batch execution. (It *can* make a direct provider completion call via
+`LiteLLMClient` for the LLM-judge path — that is one outbound call, not a managed
+gateway.) Those responsibilities belong to an upstream live-session/ADK harness.
 
 | Concern | Upstream live-session / ADK harness | This framework |
 |---|---|---|
