@@ -9,8 +9,20 @@ from ..models.core import EvalResult, Invocation, PerInvocationResult
 from .base import Evaluator
 
 
+def _render_context(context: object | None) -> str:
+    if context is None:
+        return ""
+    if isinstance(context, (list, tuple)):
+        return "\n".join(str(c) for c in context)
+    return str(context)
+
+
 def _default_vars(invocation: Invocation) -> dict:
-    return {"question": invocation.user_input, "answer": invocation.final_response}
+    return {
+        "question": invocation.user_input,
+        "answer": invocation.final_response,
+        "context": _render_context(invocation.context),
+    }
 
 
 class LlmJudgeEvaluator(Evaluator):

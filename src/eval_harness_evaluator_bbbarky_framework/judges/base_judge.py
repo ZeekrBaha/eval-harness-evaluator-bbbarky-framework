@@ -23,11 +23,13 @@ class BaseJudge:
         system_prompt: str,
         user_prompt_template: str,
         passing_labels: list[str],
+        rubric_version: str | None = None,
     ) -> None:
         self.name = name
         self.system_prompt = system_prompt
         self.user_prompt_template = user_prompt_template
         self.passing_labels = list(passing_labels)
+        self.rubric_version = rubric_version
 
     def build_messages(self, **template_vars) -> list[dict]:
         """Return chat messages with the system prompt and rendered user prompt."""
@@ -41,30 +43,31 @@ class BaseJudge:
         """Extract the JSON verdict from a raw model response."""
         match = _JSON_OBJECT.search(raw)
         if not match:
-            return JudgeResult(
-                label="",
-                issues=["unparseable judge response"],
-                rationale="",
-                raw_response=raw,
-                score=0.0,
-            )
+            return self._error_result(raw, "unparseable judge response")
         try:
             data = json.loads(match.group(0))
         except json.JSONDecodeError:
-            return JudgeResult(
-                label="",
-                issues=["invalid JSON in judge response"],
-                rationale="",
-                raw_response=raw,
-                score=0.0,
-            )
+            return self._error_result(raw, "invalid JSON in judge response")
         label = str(data.get("label", ""))
+        confidence = data.get("confidence")
         return JudgeResult(
             label=label,
             issues=list(data.get("issues", [])),
             rationale=str(data.get("rationale", "")),
             raw_response=raw,
             score=1.0 if label in self.passing_labels else 0.0,
+            confidence=float(confidence) if confidence is not None else None,
+            rubric_version=self.rubric_version,
+        )
+
+    def _error_result(self, raw: str, issue: str) -> JudgeResult:
+        return JudgeResult(
+            label="",
+            issues=[issue],
+            rationale="",
+            raw_response=raw,
+            score=0.0,
+            rubric_version=self.rubric_version,
         )
 
     async def evaluate(self, model_client, **template_vars) -> JudgeResult:

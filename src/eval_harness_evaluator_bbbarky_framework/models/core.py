@@ -10,10 +10,20 @@ from pydantic import BaseModel, Field
 
 
 class Invocation(BaseModel):
-    """A single user turn and the agent's final response to it."""
+    """A single user turn and the agent's final response to it.
+
+    The first two fields are the lightweight core. The rest are optional
+    structured context for richer evals (grounding, tool-calling, latency,
+    tracing, multi-turn ordering) and stay absent when unused.
+    """
 
     user_input: str
     final_response: str
+    context: object | None = None
+    tool_calls: list[dict] | None = None
+    trace_id: str | None = None
+    latency_ms: float | None = None
+    turn_index: int | None = None
 
 
 class EvalCase(BaseModel):
@@ -26,6 +36,8 @@ class EvalCase(BaseModel):
     id: str
     invocations: list[Invocation] = Field(default_factory=list)
     expected: object | None = None
+    expected_per_turn: list | None = None
+    artifacts: dict = Field(default_factory=dict)
     metadata: dict = Field(default_factory=dict)
 
 
@@ -68,3 +80,5 @@ class JudgeResult(BaseModel):
     rationale: str = ""
     raw_response: str = ""
     score: float = 0.0
+    confidence: float | None = None
+    rubric_version: str | None = None

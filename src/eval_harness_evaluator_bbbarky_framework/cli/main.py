@@ -22,7 +22,7 @@ from ..converters.converter import csv_to_evalset
 from ..models.core import EvalSet
 from ..report.generator import build_report
 from ..report.reporters import to_json, to_markdown
-from ..runner.config import load_class_from_path, load_config
+from ..runner.config import instantiate_evaluators, load_config
 from ..runner.core import run_suite
 
 
@@ -30,18 +30,9 @@ def _load_evalset(path: str) -> EvalSet:
     return EvalSet.from_dict(json.loads(Path(path).read_text()))
 
 
-def _instantiate_evaluators(references: list[str]) -> dict:
-    evaluators = {}
-    for ref in references:
-        cls = load_class_from_path(ref)
-        instance = cls()
-        evaluators[instance.metric_name] = instance
-    return evaluators
-
-
 def _cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    evaluators = _instantiate_evaluators(config.evaluators)
+    evaluators = instantiate_evaluators(config.evaluators)
 
     rows: list[dict] = []
     for evalset_path in config.evalsets:

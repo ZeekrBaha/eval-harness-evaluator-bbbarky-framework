@@ -17,7 +17,7 @@ class RunConfig(BaseModel):
 
     suite: str
     evalsets: list[str]
-    evaluators: list[str] = Field(default_factory=list)
+    evaluators: list[str | dict] = Field(default_factory=list)
     criteria: str | None = None
 
     @field_validator("evalsets")
@@ -42,3 +42,30 @@ def load_class_from_path(path: str):
     module_path, class_name = path.split(":", 1)
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
+
+
+def instantiate_evaluators(specs: list) -> dict:
+    """Build a name -> Evaluator mapping from config evaluator specs.
+
+    Each spec is either:
+      - a ``"module:Class"`` string (constructed with no arguments), or
+      - a dict ``{"type": "module:Class", "name": <key>, "params": {...}}``
+        where ``params`` are passed as keyword arguments to the constructor.
+
+    The mapping key is the explicit ``name`` when given, else the instance's
+    ``metric_name``.
+    """
+    evaluators: dict = {}
+    for spec in specs:
+        params: dict = {}
+        name: str | None = None
+        if isinstance(spec, str):
+            type_path = spec
+        else:
+            type_path = spec["type"]
+            params = spec.get("params", {}) or {}
+            name = spec.get("name")
+        cls = load_class_from_path(type_path)
+        instance = cls(**params)
+        evaluators[name or instance.metric_name] = instance
+    return evaluators

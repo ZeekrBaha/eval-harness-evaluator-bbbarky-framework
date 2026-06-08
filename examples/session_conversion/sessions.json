@@ -1,0 +1,19 @@
+[
+  {
+    "id": "sess-support-1",
+    "turns": [
+      {"user": "my app keeps crashing", "response": "Sorry to hear that — which device?", "context": ["triage policy"]},
+      {"user": "iPhone 14", "response": "Please update to the latest version; that fixes the crash.", "tool_calls": [{"name": "kb_search", "args": {"q": "crash iphone"}}]}
+    ],
+    "expected": "resolved",
+    "metadata": {"kind": "support", "lang": "en"}
+  },
+  {
+    "id": "sess-support-2",
+    "turns": [
+      {"user": "I was double charged", "response": "I see two charges; I've refunded the duplicate.", "context": ["billing records"]}
+    ],
+    "expected": "resolved",
+    "metadata": {"kind": "billing", "lang": "en"}
+  }
+]

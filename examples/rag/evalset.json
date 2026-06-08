@@ -1,0 +1,29 @@
+{
+  "name": "rag_groundedness",
+  "cases": [
+    {
+      "id": "refund-window",
+      "invocations": [
+        {
+          "user_input": "What is the refund window?",
+          "final_response": "Refunds are accepted within 30 days of purchase.",
+          "context": ["Our policy: refunds are accepted within 30 days of purchase."]
+        }
+      ],
+      "expected": null,
+      "metadata": {"kind": "rag"}
+    },
+    {
+      "id": "hallucinated-discount",
+      "invocations": [
+        {
+          "user_input": "Do you offer student discounts?",
+          "final_response": "Yes, students get 50% off everything.",
+          "context": ["The store offers free standard shipping over $50. No discount policy is documented."]
+        }
+      ],
+      "expected": null,
+      "metadata": {"kind": "rag"}
+    }
+  ]
+}

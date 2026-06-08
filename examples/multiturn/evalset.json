@@ -1,0 +1,23 @@
+{
+  "name": "multiturn_coherence",
+  "cases": [
+    {
+      "id": "booking-flow",
+      "invocations": [
+        {"user_input": "I want to book a table for two", "final_response": "Sure — what day works for you?", "turn_index": 0},
+        {"user_input": "Friday at 7pm", "final_response": "Booked a table for two on Friday at 7pm. See you then!", "turn_index": 1}
+      ],
+      "expected": null,
+      "metadata": {"kind": "multiturn"}
+    },
+    {
+      "id": "contradiction",
+      "invocations": [
+        {"user_input": "Is the museum open Mondays?", "final_response": "Yes, it is open every Monday.", "turn_index": 0},
+        {"user_input": "Great, so I can visit this Monday?", "final_response": "No, the museum is closed on Mondays.", "turn_index": 1}
+      ],
+      "expected": null,
+      "metadata": {"kind": "multiturn"}
+    }
+  ]
+}

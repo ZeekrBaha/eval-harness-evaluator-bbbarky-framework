@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from . import coherence, relevance  # noqa: F401
+from . import coherence, groundedness, relevance  # noqa: F401
 
-__all__ = ["relevance", "coherence"]
+__all__ = ["relevance", "coherence", "groundedness"]

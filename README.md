@@ -9,6 +9,12 @@ deterministic checks with LLM-as-judge grading.
 Built strictly test-first (TDD). The core is dependency-light and talks to any
 LLM through one seam (litellm); ADK and Phoenix are optional extras.
 
+> **Scope (read this).** This is a **generic, provider-neutral offline eval
+> library**. It grades responses you capture from *any* agent — it is not bound
+> to one agent runtime and intentionally ships **no** vendor coupling. You bring
+> the transcript (directly or via the session adapter in §17); it brings the
+> evaluators, judges, reliability stats, runner, and reporting.
+
 ```bash
 uv sync --extra dev
 uv run eval-harness run --config examples/config/faq_router.yaml --output-dir results
@@ -125,11 +131,15 @@ Result row shape (what the report aggregates):
 |---|---|---|
 | `relevance` | is the answer on-topic for the question? | `A - Good` |
 | `coherence` | is the response clear and internally consistent? | `A - Good` |
+| `groundedness` | is every claim supported by the retrieved `context`? (RAG) | `A - Good` |
 
-`LlmJudgeEvaluator` bridges any `BaseJudge` to any `ModelClient`. Judges return a
-structured `JudgeResult{label, issues, rationale, raw_response, score}` — parsing
-is lenient (handles JSON wrapped in prose or ```json fences). Judge temperature
-defaults to deterministic when you set it on the client.
+`LlmJudgeEvaluator` bridges any `BaseJudge` to any `ModelClient`. The judge's
+template variables come from the invocation (`question`, `answer`, and the
+rendered retrieved `context`). Judges return a structured
+`JudgeResult{label, issues, rationale, raw_response, score, confidence, rubric_version}`
+— parsing is lenient (handles JSON wrapped in prose or ```json fences), reads an
+optional `confidence`, and stamps the judge's `rubric_version` for auditability.
+Judge temperature defaults to deterministic when you set it on the client.
 
 ---
 
@@ -240,10 +250,13 @@ uv sync --extra dev
 # OFFLINE — no keys, CI-safe: the framework's own test suite (55 tests)
 uv run python -m pytest
 
-# OFFLINE — run the shipped example (deterministic label-match, no LLM call)
+# OFFLINE — shipped examples (deterministic, no LLM call)
 uv run eval-harness run --config examples/config/faq_router.yaml --output-dir results
-#   -> results/faq_router_report.json
-#   -> results/faq_router_report.md
+uv run eval-harness run --config examples/config/intent.yaml     --output-dir results
+#   -> results/<suite>_report.json and results/<suite>_report.md
+
+# Convert a captured agent-session log into an EvalSet (adapter demo)
+uv run python examples/session_conversion/convert_sessions.py
 
 # Convert a CSV of cases into an EvalSet
 uv run eval-harness convert --input cases.csv --output suite.evalset.json --suite my_suite
@@ -334,14 +347,21 @@ src/eval_harness_evaluator_bbbarky_framework/
 │   └── reporters.py         # to_json / to_markdown
 ├── converters/
 │   └── converter.py         # csv_to_evalset / rows_to_evalset
+├── formats/
+│   └── session.py           # generic agent-session -> EvalSet adapter
+├── reliability/
+│   └── kappa.py             # cohens_kappa, confusion_matrix, agreement_report, inter_judge
 └── cli/
     └── main.py              # eval-harness {run, convert, report}
 
 examples/
-├── config/faq_router.yaml                       # offline example config
-└── faq_router/evalsets/regression.evalset.json  # 3 routing cases
+├── config/faq_router.yaml + faq_router/...   # routing — offline, deterministic
+├── config/intent.yaml      + intent/...      # JSON intent — offline, PARAMETERIZED evaluator
+├── rag/evalset.json                          # groundedness — needs a judge (LLM)
+├── multiturn/evalset.json                    # multi-turn coherence — needs a judge (LLM)
+└── session_conversion/                       # sessions.json + convert_sessions.py (adapter demo)
 
-tests/                       # 55 tests, one suite per module (TDD)
+tests/                       # 89 tests, one suite per module (TDD)
 docs/implementation/design.md
 ```
 
@@ -400,7 +420,7 @@ class MaxLengthEvaluator(Evaluator):
 Built strictly test-first (TDD) — every flow has a test written before the code.
 
 ```bash
-uv run python -m pytest        # 55 tests, all green
+uv run python -m pytest        # 89 tests, all green
 uv run ruff check src tests    # lint (clean)
 uv run ruff format src tests   # format
 uv run mypy src                # types (no issues)
@@ -412,15 +432,75 @@ The core imports with **no** google-adk or Phoenix present — extras are isolat
 
 ## 16. Limitations / next steps
 
-- Bundled judges are intentionally minimal (`relevance`, `coherence`). Add
-  domain judges (groundedness, safety, faithfulness) via the registry.
-- The CLI `run` instantiates evaluators with **no-arg constructors**, so it
-  drives deterministic evaluators out of the box; LLM-judge runs go through the
-  library API (they need a model client).
-- No built-in judge-reliability check yet (e.g. Cohen's κ vs human labels) —
-  recommended before you let a judged metric block CI.
+- Bundled judges (`relevance`, `coherence`, `groundedness`) are starting points;
+  add domain judges (safety, faithfulness, tone) via the registry.
+- The CLI `run` constructs evaluators from config — both the `"module:Class"`
+  string form and the `{type, name, params}` form (so parameterized evaluators
+  like `JsonSchemaEvaluator(required_keys=…)` work from YAML). Evaluators needing
+  a **live model client** (LLM judges) still run through the library API, since a
+  client/key is required.
+- `CompositeEvaluator` and `ScorerEvaluator` take other objects as arguments, so
+  they're wired in code rather than pure YAML.
 - ADK runtime, recordings, simulation, and Phoenix tracing are out of the v1
   core (reserved for the `[adk]` / `[phoenix]` extras).
+
+---
+
+## 17. Advanced: rich inputs, calibration, reliability
+
+### Richer cases — context, tools, multi-turn
+
+`Invocation` carries optional structured fields beyond the core
+`user_input`/`final_response`, so real evals aren't flattened to two strings:
+
+```python
+Invocation(
+    user_input="What's the refund window?",
+    final_response="30 days.",
+    context=["Refunds accepted within 30 days."],   # retrieved docs → groundedness
+    tool_calls=[{"name": "kb_search", "args": {"q": "refund"}}],
+    trace_id="trace-abc", latency_ms=812.5, turn_index=0,
+)
+```
+
+`EvalCase` adds optional `expected_per_turn` and `artifacts`. A case holds many
+invocations → multi-turn evals (see `examples/multiturn/`). All fields are
+optional and omitted from serialization when unset (back-compat).
+
+### Bring your own agent's sessions
+
+Adapt any captured transcript into an EvalSet — no vendor coupling:
+
+```python
+from eval_harness_evaluator_bbbarky_framework.formats.session import sessions_to_evalset
+
+sessions = [{"id": "s1", "turns": [{"user": "...", "response": "...", "context": ["..."]}],
+             "expected": "resolved", "metadata": {"kind": "support"}}]
+evalset = sessions_to_evalset("support_suite", sessions)
+```
+
+### Validate the judge before it gates CI
+
+An LLM judge is itself a noisy classifier. Measure agreement vs human labels —
+**Cohen's κ**, accuracy, and a confusion matrix — before a judged metric blocks a
+pipeline:
+
+```python
+from eval_harness_evaluator_bbbarky_framework.reliability import (
+    agreement_report, cohens_kappa, inter_judge_agreement,
+)
+
+human = ["A - Good", "B - Bad", "A - Good", "A - Good"]
+judge = ["A - Good", "B - Bad", "A - Good", "B - Bad"]
+print(agreement_report(human, judge))   # {'n':4,'accuracy':0.75,'kappa':0.5,'confusion':{...}}
+
+# agreement across multiple judges (or judge re-runs, to measure variance):
+print(inter_judge_agreement({"j1": [...], "j2": [...], "j3": [...]}))
+```
+
+Rule of thumb: don't let a judged metric **block** merges until κ vs human labels
+clears your bar (commonly ≥ 0.6). Until then, report it but keep it non-blocking;
+keep deterministic safety checks at 100% as the hard gate.
 
 ---
 

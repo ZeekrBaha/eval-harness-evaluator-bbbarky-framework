@@ -1,0 +1,12 @@
+# Structured-output (JSON intent extraction) eval — fully offline, no API key.
+# Demonstrates a PARAMETERIZED evaluator (required_keys) via the config.
+#   uv run eval-harness run --config examples/config/intent.yaml --output-dir results
+suite: intent_extraction
+evalsets:
+  - examples/intent/evalset.json
+evaluators:
+  - type: eval_harness_evaluator_bbbarky_framework.evaluators.json_schema:JsonSchemaEvaluator
+    name: intent_schema
+    params:
+      required_keys: [intent, confidence]
+      threshold: 1.0

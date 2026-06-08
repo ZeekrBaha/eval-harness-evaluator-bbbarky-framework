@@ -1,0 +1,29 @@
+{
+  "name": "intent_extraction",
+  "cases": [
+    {
+      "id": "buy-laptop",
+      "invocations": [
+        {"user_input": "I want to buy a laptop", "final_response": "{\"intent\": \"purchase\", \"confidence\": 0.94}"}
+      ],
+      "expected": null,
+      "metadata": {"kind": "intent"}
+    },
+    {
+      "id": "track-order",
+      "invocations": [
+        {"user_input": "where is my package", "final_response": "{\"intent\": \"track_order\", \"confidence\": 0.88}"}
+      ],
+      "expected": null,
+      "metadata": {"kind": "intent"}
+    },
+    {
+      "id": "missing-confidence",
+      "invocations": [
+        {"user_input": "cancel my subscription", "final_response": "{\"intent\": \"cancel\"}"}
+      ],
+      "expected": null,
+      "metadata": {"kind": "intent"}
+    }
+  ]
+}
