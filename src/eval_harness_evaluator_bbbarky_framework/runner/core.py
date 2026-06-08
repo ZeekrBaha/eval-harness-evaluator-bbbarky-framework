@@ -26,6 +26,20 @@ async def run_suite(evalset: EvalSet, evaluators: dict[str, Evaluator]) -> list[
                     "lang": lang,
                     "success": result.passed,
                     "score": result.score,
+                    "details": _representative_details(result),
                 }
             )
     return rows
+
+
+def _representative_details(result) -> dict:
+    """Pick the most informative per-invocation details for a row.
+
+    Prefer the first failing invocation (the useful one for auditing), else the
+    first. Empty for evaluators that record no per-invocation details.
+    """
+    per = result.per_invocation
+    if not per:
+        return {}
+    chosen = next((p for p in per if not p.passed), per[0])
+    return dict(chosen.details)

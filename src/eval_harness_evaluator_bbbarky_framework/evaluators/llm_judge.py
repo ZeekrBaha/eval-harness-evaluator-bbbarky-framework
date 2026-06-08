@@ -60,6 +60,8 @@ class LlmJudgeEvaluator(Evaluator):
                         "label": verdict.label,
                         "rationale": verdict.rationale,
                         "issues": verdict.issues,
+                        "confidence": verdict.confidence,
+                        "rubric_version": verdict.rubric_version,
                     },
                 )
             )

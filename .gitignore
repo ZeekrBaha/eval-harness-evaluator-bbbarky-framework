@@ -23,6 +23,7 @@ htmlcov/
 # Eval outputs
 results/
 examples/session_conversion/support_suite.evalset.json
+examples/agent_session_export/exported_rag_suite.evalset.json
 
 # OS
 .DS_Store

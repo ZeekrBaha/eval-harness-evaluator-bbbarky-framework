@@ -5,10 +5,17 @@ Subcommands:
   convert  Convert a CSV file into an EvalSet JSON file.
   report   Re-render an existing report JSON as Markdown.
 
-The ``run`` command instantiates evaluators from their ``module:Class``
-references with no arguments, so it supports deterministic evaluators out of
-the box. LLM-judge evaluators that need a model client are driven via the
-library API rather than the CLI.
+The ``run`` command builds evaluators from config specs:
+  - a ``"module:Class"`` string  -> constructed with no arguments;
+  - ``{type, name, params}``      -> ``params`` passed as constructor kwargs,
+    resolved recursively so nested evaluators/scorers work (e.g. a
+    CompositeEvaluator whose ``evaluators`` are themselves specs);
+  - ``{judge, name, threshold}``  -> an LlmJudgeEvaluator, which requires a
+    top-level ``model_client`` section; the run fails clearly if a judge
+    evaluator is configured without one.
+
+A ``model_client`` section (``{type, params}``) is constructed only when
+present, so deterministic, key-free runs need no client at all.
 """
 
 from __future__ import annotations
@@ -22,7 +29,7 @@ from ..converters.converter import csv_to_evalset
 from ..models.core import EvalSet
 from ..report.generator import build_report
 from ..report.reporters import to_json, to_markdown
-from ..runner.config import instantiate_evaluators, load_config
+from ..runner.config import build_object, instantiate_evaluators, load_config
 from ..runner.core import run_suite
 
 
@@ -32,7 +39,8 @@ def _load_evalset(path: str) -> EvalSet:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     config = load_config(args.config)
-    evaluators = instantiate_evaluators(config.evaluators)
+    model_client = build_object(config.model_client) if config.model_client else None
+    evaluators = instantiate_evaluators(config.evaluators, model_client=model_client)
 
     rows: list[dict] = []
     for evalset_path in config.evalsets:

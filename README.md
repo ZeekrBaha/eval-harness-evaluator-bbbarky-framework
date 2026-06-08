@@ -10,10 +10,30 @@ Built strictly test-first (TDD). The core is dependency-light and talks to any
 LLM through one seam (litellm); ADK and Phoenix are optional extras.
 
 > **Scope (read this).** This is a **generic, provider-neutral offline eval
-> library**. It grades responses you capture from *any* agent — it is not bound
-> to one agent runtime and intentionally ships **no** vendor coupling. You bring
-> the transcript (directly or via the session adapter in §17); it brings the
-> evaluators, judges, reliability stats, runner, and reporting.
+> library** — **not a live agent-runtime harness.** It grades responses you
+> capture from *any* agent; it does not execute the agent, manage a live
+> session/ADK runtime, talk to a model gateway, or checkpoint batch runs. It
+> ships **no** vendor coupling. You bring the transcript (directly or via the
+> session adapter in §17); it brings the evaluators, judges, reliability stats,
+> runner, and reporting.
+
+### Where this sits vs a live-session harness
+
+| Concern | Upstream live-session / ADK harness | **This framework (offline)** |
+|---|---|---|
+| Run the agent live, manage session/ADK state | ✅ | ❌ (out of scope) |
+| Model gateway, auth, rate limits, checkpointed batch execution | ✅ | ❌ |
+| Score frozen transcripts, deterministic + LLM-judge | partial | ✅ |
+| Reporting with confidence intervals | partial | ✅ |
+| Judge reliability stats (κ, confusion, agreement) | — | ✅ |
+| Vendor-neutral, pip-installable, public | — | ✅ |
+
+**Integration path:** the upstream harness *captures* sessions (user query,
+agent response, retrieved context, tool calls, history, judge configs); you
+*export* them as plain records and *convert* them into an EvalSet here for
+offline scoring, reporting, and judge calibration (see §17 and
+`examples/agent_session_export/`). Live execution stays upstream; frozen-transcript
+evaluation lives here.
 
 ```bash
 uv sync --extra dev
@@ -255,8 +275,12 @@ uv run eval-harness run --config examples/config/faq_router.yaml --output-dir re
 uv run eval-harness run --config examples/config/intent.yaml     --output-dir results
 #   -> results/<suite>_report.json and results/<suite>_report.md
 
-# Convert a captured agent-session log into an EvalSet (adapter demo)
+# Convert a captured agent-session log into an EvalSet (adapter demos)
 uv run python examples/session_conversion/convert_sessions.py
+uv run python examples/agent_session_export/export_to_evalset.py
+
+# Judge-reliability demo (Cohen's kappa vs human labels -> gate decision)
+uv run python examples/reliability/reliability_demo.py
 
 # Convert a CSV of cases into an EvalSet
 uv run eval-harness convert --input cases.csv --output suite.evalset.json --suite my_suite
@@ -359,9 +383,12 @@ examples/
 ├── config/intent.yaml      + intent/...      # JSON intent — offline, PARAMETERIZED evaluator
 ├── rag/evalset.json                          # groundedness — needs a judge (LLM)
 ├── multiturn/evalset.json                    # multi-turn coherence — needs a judge (LLM)
-└── session_conversion/                       # sessions.json + convert_sessions.py (adapter demo)
+├── session_conversion/                       # multi-turn sessions -> EvalSet adapter demo
+├── agent_session_export/                     # richer single-turn export -> EvalSet (history,
+│                                             #   retrieved context, tool calls, judge configs)
+└── reliability/                              # human_vs_judge.json + reliability_demo.py (kappa gate)
 
-tests/                       # 89 tests, one suite per module (TDD)
+tests/                       # 106 tests, one suite per module (TDD)
 docs/implementation/design.md
 ```
 
@@ -420,7 +447,7 @@ class MaxLengthEvaluator(Evaluator):
 Built strictly test-first (TDD) — every flow has a test written before the code.
 
 ```bash
-uv run python -m pytest        # 89 tests, all green
+uv run python -m pytest        # 106 tests, all green
 uv run ruff check src tests    # lint (clean)
 uv run ruff format src tests   # format
 uv run mypy src                # types (no issues)
@@ -434,13 +461,12 @@ The core imports with **no** google-adk or Phoenix present — extras are isolat
 
 - Bundled judges (`relevance`, `coherence`, `groundedness`) are starting points;
   add domain judges (safety, faithfulness, tone) via the registry.
-- The CLI `run` constructs evaluators from config — both the `"module:Class"`
-  string form and the `{type, name, params}` form (so parameterized evaluators
-  like `JsonSchemaEvaluator(required_keys=…)` work from YAML). Evaluators needing
-  a **live model client** (LLM judges) still run through the library API, since a
-  client/key is required.
-- `CompositeEvaluator` and `ScorerEvaluator` take other objects as arguments, so
-  they're wired in code rather than pure YAML.
+- The CLI `run` builds evaluators from config in three forms — `"module:Class"`
+  string, `{type, name, params}` (resolved **recursively**, so nested
+  `CompositeEvaluator`/`ScorerEvaluator` specs work), and `{judge, name,
+  threshold}` for LLM judges (which require a `model_client` section). See §17.
+- LLM-judge runs still need a provider key at run time (the framework can't
+  invent one); deterministic runs stay fully offline and key-free.
 - ADK runtime, recordings, simulation, and Phoenix tracing are out of the v1
   core (reserved for the `[adk]` / `[phoenix]` extras).
 
@@ -498,9 +524,67 @@ print(agreement_report(human, judge))   # {'n':4,'accuracy':0.75,'kappa':0.5,'co
 print(inter_judge_agreement({"j1": [...], "j2": [...], "j3": [...]}))
 ```
 
-Rule of thumb: don't let a judged metric **block** merges until κ vs human labels
-clears your bar (commonly ≥ 0.6). Until then, report it but keep it non-blocking;
-keep deterministic safety checks at 100% as the hard gate.
+Run the shipped demo (`examples/reliability/`):
+
+```bash
+uv run python examples/reliability/reliability_demo.py
+# n: 8 | accuracy: 0.75 | cohen kappa: 0.5 | VERDICT: kappa < 0.6 -> report-only
+```
+
+### Configuring evaluators in YAML (nested + judges)
+
+Constructor args, nested evaluators/scorers, and LLM judges are all expressible
+in the config:
+
+```yaml
+suite: my_suite
+evalsets: [data/my.evalset.json]
+
+# Only needed when an evaluator is an LLM judge:
+model_client:
+  type: eval_harness_evaluator_bbbarky_framework.model_clients.litellm_client:LiteLLMClient
+  params: {model: gpt-4o-mini, temperature: 0.0}
+
+evaluators:
+  # 1) string form — no-arg constructor
+  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator
+
+  # 2) {type, name, params} — constructor kwargs
+  - type: eval_harness_evaluator_bbbarky_framework.evaluators.json_schema:JsonSchemaEvaluator
+    name: intent_schema
+    params: {required_keys: [intent, confidence], threshold: 1.0}
+
+  # 3) nested — a composite whose sub-evaluators (and a scorer) are themselves specs
+  - type: eval_harness_evaluator_bbbarky_framework.evaluators.composite:CompositeEvaluator
+    name: safety_gate
+    params:
+      evaluators:
+        - type: eval_harness_evaluator_bbbarky_framework.evaluators.json_schema:JsonSchemaEvaluator
+          params: {required_keys: [intent]}
+        - type: eval_harness_evaluator_bbbarky_framework.evaluators.response_scorers:ScorerEvaluator
+          params:
+            scorer:
+              type: eval_harness_evaluator_bbbarky_framework.evaluators.response_scorers:ContainsKeywordsScorer
+              params: {keywords: [refund, policy]}
+            threshold: 1.0
+
+  # 4) {judge, ...} — an LLM judge (needs model_client above)
+  - judge: groundedness
+    name: groundedness
+    threshold: 0.5
+```
+
+If a `judge:` evaluator is configured without a `model_client`, the run fails
+with a clear error rather than silently skipping it.
+
+### Recommended CI policy (three tiers)
+
+1. **Deterministic gates block immediately** — schema validity, label routing,
+   safety scorers. Cheap, keyless, must be 100%.
+2. **LLM-judge metrics are report-only by default** — surfaced in the report
+   (with rationale/issues/confidence/rubric_version), never blocking.
+3. **A judged metric may block only after calibration** — once its Cohen's κ vs
+   sampled human labels clears your bar (commonly ≥ 0.6), promote it to a gate.
 
 ---
 

@@ -1,0 +1,39 @@
+[
+  {
+    "id": "conv-refund-1",
+    "user_query": "What is your refund window?",
+    "agent_response": "Refunds are accepted within 30 days of purchase.",
+    "history": [
+      {"role": "user", "content": "hi"},
+      {"role": "agent", "content": "Hello! How can I help with your order?"}
+    ],
+    "retrieved_context": [
+      "Refund policy: customers may return items within 30 days of purchase for a full refund."
+    ],
+    "tool_calls": [
+      {"name": "kb_search", "args": {"query": "refund policy"}}
+    ],
+    "judge_configs": {
+      "groundedness": {"rubric_version": "v1", "threshold": 0.5}
+    },
+    "expected": "A - Good",
+    "metadata": {"kind": "rag", "lang": "en"}
+  },
+  {
+    "id": "conv-discount-2",
+    "user_query": "Do you give students a discount?",
+    "agent_response": "Yes, students get 50% off everything.",
+    "history": [],
+    "retrieved_context": [
+      "Shipping policy: free standard shipping on orders over $50. No student discount is documented."
+    ],
+    "tool_calls": [
+      {"name": "kb_search", "args": {"query": "student discount"}}
+    ],
+    "judge_configs": {
+      "groundedness": {"rubric_version": "v1", "threshold": 0.5}
+    },
+    "expected": "B - Bad",
+    "metadata": {"kind": "rag", "lang": "en"}
+  }
+]

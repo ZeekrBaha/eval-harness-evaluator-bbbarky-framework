@@ -1,0 +1,13 @@
+{
+  "description": "Sampled human labels vs LLM-judge labels on the same items. Use to decide whether a judged metric is trustworthy enough to GATE CI (vs report-only).",
+  "items": [
+    {"id": "c1", "human": "A - Good", "judge": "A - Good"},
+    {"id": "c2", "human": "A - Good", "judge": "A - Good"},
+    {"id": "c3", "human": "B - Bad",  "judge": "B - Bad"},
+    {"id": "c4", "human": "B - Bad",  "judge": "A - Good"},
+    {"id": "c5", "human": "A - Good", "judge": "A - Good"},
+    {"id": "c6", "human": "B - Bad",  "judge": "B - Bad"},
+    {"id": "c7", "human": "A - Good", "judge": "B - Bad"},
+    {"id": "c8", "human": "B - Bad",  "judge": "B - Bad"}
+  ]
+}

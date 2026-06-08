@@ -6,6 +6,28 @@ LLM-as-judge library and a fuller ADK eval platform. Combines the judge library
 reporting, converters, and CLI of the latter. Provider-agnostic; no proprietary
 naming or vendor coupling.
 
+## Positioning (what this is / is not)
+
+This is a **generic, provider-neutral, offline evaluation library**. It is **not**
+a live agent-runtime harness: it does not execute the agent, manage a live
+session/ADK runtime, talk to a model gateway, or checkpoint batch execution.
+Those responsibilities belong to an upstream live-session/ADK harness.
+
+| Concern | Upstream live-session / ADK harness | This framework |
+|---|---|---|
+| Live agent execution, session/ADK state | ✅ | ❌ |
+| Gateway, auth, rate limits, checkpointed batches | ✅ | ❌ |
+| Frozen-transcript scoring (deterministic + judge) | partial | ✅ |
+| Reporting with confidence intervals | partial | ✅ |
+| Judge reliability stats (κ, confusion, agreement) | — | ✅ |
+| Vendor-neutral, pip-installable | — | ✅ |
+
+**Integration path:** capture sessions upstream → export as plain records →
+convert to an EvalSet via `formats/session.py` (`session_to_evalcase` for
+multi-turn, `agent_session_to_evalcase` for a richer single-turn export that
+also preserves history and judge configs as case `artifacts`) → score, report,
+and calibrate offline. Live execution stays upstream; evaluation lives here.
+
 ## Layering
 
 ```
