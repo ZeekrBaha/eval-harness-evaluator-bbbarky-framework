@@ -1,0 +1,29 @@
+{
+  "name": "faq_router",
+  "cases": [
+    {
+      "id": "route-billing",
+      "invocations": [
+        {"user_input": "I was charged twice this month", "final_response": "Billing"}
+      ],
+      "expected": "Billing",
+      "metadata": {"kind": "routing"}
+    },
+    {
+      "id": "route-tech",
+      "invocations": [
+        {"user_input": "the app crashes on launch", "final_response": "Technical Support"}
+      ],
+      "expected": "Technical Support",
+      "metadata": {"kind": "routing"}
+    },
+    {
+      "id": "route-sales",
+      "invocations": [
+        {"user_input": "do you offer an enterprise plan?", "final_response": "Billing"}
+      ],
+      "expected": "Sales",
+      "metadata": {"kind": "routing"}
+    }
+  ]
+}

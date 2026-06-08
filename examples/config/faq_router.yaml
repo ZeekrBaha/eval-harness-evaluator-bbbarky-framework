@@ -1,0 +1,8 @@
+# Example: route customer messages to a support queue label.
+# Run offline (deterministic label-match evaluator, no API key required):
+#   uv run eval-harness run --config examples/config/faq_router.yaml --output-dir results
+suite: faq_router
+evalsets:
+  - examples/faq_router/evalsets/regression.evalset.json
+evaluators:
+  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator

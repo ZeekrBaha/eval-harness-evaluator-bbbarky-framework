@@ -1,0 +1,51 @@
+# Design — eval-harness-evaluator-bbbarky-framework
+
+Clean-room synthesis of two prior internal eval frameworks: a focused
+LLM-as-judge library and a fuller ADK eval platform. Combines the judge library
++ provider abstraction of the former with the evaluator hierarchy, YAML runner,
+reporting, converters, and CLI of the latter. Provider-agnostic; no proprietary
+naming or vendor coupling.
+
+## Layering
+
+```
+models/core         ← canonical data types (no deps on other layers)
+   ↑
+model_clients       ← ModelClient Protocol + litellm default (injected network)
+judges              ← BaseJudge: prompt → ModelClient → JudgeResult; registry; configs
+   ↑
+evaluators          ← Evaluator ABC + concrete (label_match, llm_judge, scorers,
+                       json_schema, composite). llm_judge bridges judges via ModelClient.
+   ↑
+runner              ← load_config(yaml) + run_suite() → flat result rows
+report              ← summarize() (Wilson CI) + JSON/Markdown reporters
+cli                 ← eval-harness {run, convert, report}
+facade              ← HarnessEvaluator: one-call "evaluate(invocations, judge_names)"
+```
+
+Dependencies point downward only. `model_clients` is injected into judges /
+evaluators, never imported by `models`.
+
+## Key contracts
+
+- `Evaluator.evaluate_invocations(invocations, expected) -> EvalResult` — async, so
+  deterministic and LLM-backed evaluators are uniform to the runner.
+- `ModelClient.generate(messages, **opts) -> str` — the only provider seam.
+- `BaseJudge.build_messages(**vars)` / `parse(raw) -> JudgeResult` — lenient JSON
+  extraction (handles fenced/prose-wrapped output).
+- Runner rows: `{id, metric, kind, lang, success, score}` — plain dicts the report
+  layer aggregates without importing evaluator types.
+
+## Decisions
+
+- **Provider-agnostic core via litellm**, plus a `ModelClient` Protocol so native
+  or custom clients can be registered. No vendor gateway.
+- **ADK / Phoenix are optional extras**, isolated so the core imports without them.
+- **Wilson 95% CIs** on every pass-rate slice (overall, by_metric, by_kind, by_lang)
+  so small-n deltas read as directional vs strong.
+- **Strict TDD** — every flow has a test written first; all commands run via `uv`.
+
+## Non-goals (v1)
+
+- No ADK runtime, recordings, simulation, or Phoenix tracing in the core (extras only).
+- No bench/latency CLI subcommands yet (deferred to the `[adk]` surface).
