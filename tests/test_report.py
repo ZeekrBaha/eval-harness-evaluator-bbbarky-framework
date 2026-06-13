@@ -93,8 +93,13 @@ def test_build_report_includes_suite_and_summary():
 
 def test_to_json_is_parseable():
     report = build_report("demo", _rows())
-    parsed = json.loads(to_json(report))
-    assert parsed["suite"] == "demo"
+    report_json = json.loads(to_json(report))
+    assert report_json["suite"] == "demo"
+    assert "suite" in report_json
+    assert "summary" in report_json
+    assert "rows" in report_json
+    assert "schema_version" in report_json
+    assert "run_id" in report_json
 
 
 def test_to_markdown_mentions_suite_and_pass_rate():
