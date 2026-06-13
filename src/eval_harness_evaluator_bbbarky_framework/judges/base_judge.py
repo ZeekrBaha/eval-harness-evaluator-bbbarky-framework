@@ -73,12 +73,17 @@ class BaseJudge:
             return self._error_result(raw, "invalid JSON in judge response")
         label = str(data.get("label", ""))
         confidence = data.get("confidence")
+        # Numeric 1-5 rubric: a single digit string drives a proportional score.
+        if label.isdigit() and 1 <= int(label) <= 5:
+            score = int(label) / 5.0
+        else:
+            score = 1.0 if label in self.passing_labels else 0.0
         return JudgeResult(
             label=label,
             issues=list(data.get("issues", [])),
             rationale=str(data.get("rationale", "")),
             raw_response=raw,
-            score=1.0 if label in self.passing_labels else 0.0,
+            score=score,
             confidence=float(confidence) if confidence is not None else None,
             rubric_version=self.rubric_version,
         )

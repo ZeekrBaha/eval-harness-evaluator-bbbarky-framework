@@ -9,7 +9,7 @@ from eval_harness_evaluator_bbbarky_framework.runner.core import run_suite
 
 class Client:
     async def generate(self, messages, **opts):
-        return '{"label": "A - Good", "rationale": "ok", "confidence": 0.7}'
+        return '{"label": "5", "rationale": "ok", "confidence": 0.7}'
 
 
 async def test_row_preserves_all_per_invocation_details():
@@ -35,7 +35,7 @@ async def test_row_preserves_all_per_invocation_details():
     # full audit trail: one details dict per invocation
     assert len(row["per_invocation"]) == 2
     assert all(pi["confidence"] == 0.7 for pi in row["per_invocation"])
-    assert all(pi["rubric_version"] == "v1" for pi in row["per_invocation"])
+    assert all(pi["rubric_version"] == "v2" for pi in row["per_invocation"])
     # representative summary still present for human-readable reports
     assert "details" in row
 

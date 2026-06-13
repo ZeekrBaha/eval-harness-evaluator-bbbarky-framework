@@ -12,7 +12,7 @@ from eval_harness_evaluator_bbbarky_framework.runner.config import instantiate_e
 
 class FakeClient:
     async def generate(self, messages, **opts):
-        return '{"label": "A - Good", "rationale": "supported", "confidence": 0.9}'
+        return '{"label": "5", "rationale": "supported", "confidence": 0.9}'
 
 
 async def test_judge_spec_builds_llm_judge_evaluator_with_client():
@@ -33,7 +33,7 @@ def test_judge_spec_without_model_client_raises_clear_error():
 
 def test_cli_run_with_model_client_and_judge(tmp_path, monkeypatch):
     async def fake_generate(self, messages, **opts):
-        return '{"label": "A - Good", "rationale": "ok", "confidence": 0.8}'
+        return '{"label": "5", "rationale": "ok", "confidence": 0.8}'
 
     monkeypatch.setattr(LiteLLMClient, "generate", fake_generate)
 

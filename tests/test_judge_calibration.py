@@ -44,4 +44,4 @@ def test_groundedness_judge_carries_rubric_version():
     from eval_harness_evaluator_bbbarky_framework.judges import configs  # noqa: F401
 
     judge = get_judge("groundedness")
-    assert judge.rubric_version == "v1"
+    assert judge.rubric_version == "v2"

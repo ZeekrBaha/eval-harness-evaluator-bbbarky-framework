@@ -16,6 +16,7 @@ def test_coherence_judge_is_registered():
 
 
 def test_bundled_judge_parses_a_passing_verdict():
+    # The top numeric label "5" must produce the maximum score of 1.0.
     judge = get_judge("relevance")
-    result = judge.parse('{"label": "%s", "rationale": "ok"}' % judge.passing_labels[0])
+    result = judge.parse('{"label": "5", "rationale": "ok"}')
     assert result.score == 1.0

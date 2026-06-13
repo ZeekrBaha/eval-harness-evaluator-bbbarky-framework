@@ -12,7 +12,7 @@ def test_public_exports_present():
 async def test_harness_evaluator_runs_named_bundled_judges():
     class FakeClient:
         async def generate(self, messages, **opts):
-            return '{"label": "A - Good", "rationale": "ok"}'
+            return '{"label": "5", "rationale": "ok"}'
 
     harness = HarnessEvaluator(FakeClient())
     results = await harness.evaluate(
