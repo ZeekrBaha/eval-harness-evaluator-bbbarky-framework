@@ -88,3 +88,19 @@ def test_module_level_register_and_get_roundtrip():
     judge = make_judge(name="query_quality")
     register_judge(judge)
     assert get_judge("query_quality") is judge
+
+
+def test_parse_ignores_trailing_brace_tokens_after_json():
+    """Greedy DOTALL regex fails when prose after JSON contains '}' (e.g. '{v1}').
+
+    The response '{"label": "A - Good", "rationale": "ok"} See rubric {v1}' has
+    two closing braces. The old r'\\{.*\\}' regex (DOTALL, greedy) captures the
+    whole string — from the first '{' to the LAST '}' — producing invalid JSON
+    and silently returning score=0.0. The fix must return score=1.0.
+    """
+    judge = make_judge()
+    raw = '{"label": "A - Good", "rationale": "ok"} See rubric {v1}'
+    result = judge.parse(raw)
+    assert result.label == "A - Good", f"Expected 'A - Good' but got {result.label!r}"
+    assert result.score == 1.0, f"Expected score 1.0 but got {result.score}"
+    assert result.rationale == "ok"
