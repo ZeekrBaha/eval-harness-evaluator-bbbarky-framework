@@ -104,6 +104,15 @@ def test_to_markdown_mentions_suite_and_pass_rate():
     assert "Pass rate" in md or "pass rate" in md
 
 
+def test_summarize_uses_custom_z_value():
+    rows = _rows()
+    summary_95 = summarize(rows)
+    summary_99 = summarize(rows, z=2.576)
+    assert summary_99["ci_z"] == 2.576
+    assert summary_99["ci_low"] < summary_95["ci_low"]
+    assert summary_99["ci_high"] > summary_95["ci_high"]
+
+
 def test_build_report_includes_metadata():
     result = build_report("my_suite", [])
     assert result["schema_version"] == "1.1"
