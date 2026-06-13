@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+from collections import Counter
 from typing import Protocol
 
 from ..models.core import EvalResult, Invocation, PerInvocationResult
@@ -26,33 +28,38 @@ class ExactMatchScorer:
 
 
 class ContainsKeywordsScorer:
-    """Fraction of required keywords present in the prediction."""
+    """Fraction of required keywords present in the prediction (whole-word match)."""
 
     def __init__(self, keywords: list[str]) -> None:
         self.keywords = [k.lower() for k in keywords]
+        self._patterns = [
+            re.compile(r"\b" + re.escape(k) + r"\b")
+            for k in self.keywords
+        ]
 
     def score(self, prediction: str, reference: object | None) -> float:
-        if not self.keywords:
+        if not self._patterns:
             return 1.0
         text = prediction.lower()
-        present = sum(1 for k in self.keywords if k in text)
-        return present / len(self.keywords)
+        present = sum(1 for p in self._patterns if p.search(text))
+        return present / len(self._patterns)
 
 
 class FuzzyF1Scorer:
-    """Token-overlap F1 over unigrams (simple, dependency-free)."""
+    """Token-overlap F1 over unigrams using multiset (SQuAD-style)."""
 
     def score(self, prediction: str, reference: object | None) -> float:
         pred = _tokens(prediction)
         ref = _tokens(str(reference))
         if not pred or not ref:
             return 0.0
-        pred_set, ref_set = set(pred), set(ref)
-        overlap = pred_set & ref_set
-        if not overlap:
+        pred_counts = Counter(pred)
+        ref_counts = Counter(ref)
+        overlap = sum((pred_counts & ref_counts).values())
+        if overlap == 0:
             return 0.0
-        precision = len(overlap) / len(pred_set)
-        recall = len(overlap) / len(ref_set)
+        precision = overlap / len(pred)
+        recall = overlap / len(ref)
         return 2 * precision * recall / (precision + recall)
 
 

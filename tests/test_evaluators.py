@@ -84,6 +84,21 @@ def test_fuzzy_f1_scorer_disjoint_is_zero():
     assert s.score("alpha", "omega") == 0.0
 
 
+def test_fuzzy_f1_handles_repeated_tokens_correctly():
+    # "cat cat cat" vs "cat dog": with multiset F1
+    # pred tokens = [cat, cat, cat], ref tokens = [cat, dog]
+    # overlap = min(3,1) for cat = 1; precision = 1/3, recall = 1/2
+    # F1 = 2 * (1/3) * (1/2) / (1/3 + 1/2) = (1/3) / (5/6) = 2/5 = 0.40
+    s = FuzzyF1Scorer()
+    assert s.score("cat cat cat", "cat dog") == pytest.approx(0.40, abs=1e-6)
+
+
+def test_contains_keywords_no_substring_false_positive():
+    # keyword "is" should NOT match inside "this" or "crisis"
+    s = ContainsKeywordsScorer(["is"])
+    assert s.score("this crisis", None) == 0.0
+
+
 async def test_scorer_evaluator_uses_scorer_and_threshold():
     ev = ScorerEvaluator(ExactMatchScorer(), threshold=0.5)
     passed = await ev.evaluate_invocations(inv("q", "yes"), expected="yes")
