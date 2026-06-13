@@ -102,3 +102,12 @@ def test_to_markdown_mentions_suite_and_pass_rate():
     md = to_markdown(report)
     assert "demo" in md
     assert "Pass rate" in md or "pass rate" in md
+
+
+def test_build_report_includes_metadata():
+    result = build_report("my_suite", [])
+    assert result["schema_version"] == "1.1"
+    assert "generated_at" in result and (
+        result["generated_at"].endswith("Z") or "+00:00" in result["generated_at"]
+    )
+    assert "run_id" in result and len(result["run_id"]) == 36
