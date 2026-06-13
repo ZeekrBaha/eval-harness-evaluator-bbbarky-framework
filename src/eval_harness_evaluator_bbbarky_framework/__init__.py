@@ -8,7 +8,9 @@ from .evaluators.json_schema import JsonSchemaEvaluator
 from .evaluators.label_match import LabelMatchEvaluator
 from .evaluators.llm_judge import LlmJudgeEvaluator
 from .evaluators.response_scorers import ScorerEvaluator, ExactMatchScorer, ContainsKeywordsScorer, FuzzyF1Scorer
+from .evaluators.tool_call_evaluator import ToolCallEvaluator
 from .facade import HarnessEvaluator
+from .judges.configs.hallucination import make_hallucination_judge
 from .judges.registry import seed_default_judges
 from .reliability.kappa import agreement_report, cohens_kappa, inter_judge_agreement
 from .models.core import (
@@ -32,6 +34,7 @@ __all__ = [
     "ExactMatchScorer",
     "ContainsKeywordsScorer",
     "FuzzyF1Scorer",
+    "ToolCallEvaluator",
     "run_suite",
     "EvalSet",
     "EvalCase",
@@ -43,4 +46,5 @@ __all__ = [
     "cohens_kappa",
     "inter_judge_agreement",
     "seed_default_judges",
+    "make_hallucination_judge",
 ]

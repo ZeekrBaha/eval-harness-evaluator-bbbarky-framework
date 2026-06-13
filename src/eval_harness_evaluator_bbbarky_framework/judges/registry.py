@@ -41,9 +41,11 @@ def seed_default_judges(registry: JudgeRegistry | None = None) -> JudgeRegistry:
     from .configs.relevance import make_relevance_judge
     from .configs.coherence import make_coherence_judge
     from .configs.groundedness import make_groundedness_judge
+    from .configs.hallucination import make_hallucination_judge
 
     r = registry or default_registry
     r.register(make_relevance_judge())
     r.register(make_coherence_judge())
     r.register(make_groundedness_judge())
+    r.register(make_hallucination_judge())
     return r
