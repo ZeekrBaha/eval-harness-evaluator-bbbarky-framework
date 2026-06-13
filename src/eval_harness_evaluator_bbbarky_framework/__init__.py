@@ -9,6 +9,7 @@ from .evaluators.label_match import LabelMatchEvaluator
 from .evaluators.llm_judge import LlmJudgeEvaluator
 from .evaluators.response_scorers import ScorerEvaluator, ExactMatchScorer, ContainsKeywordsScorer, FuzzyF1Scorer
 from .facade import HarnessEvaluator
+from .judges.registry import seed_default_judges
 from .reliability.kappa import agreement_report, cohens_kappa, inter_judge_agreement
 from .models.core import (
     EvalCase,
@@ -41,4 +42,5 @@ __all__ = [
     "agreement_report",
     "cohens_kappa",
     "inter_judge_agreement",
+    "seed_default_judges",
 ]

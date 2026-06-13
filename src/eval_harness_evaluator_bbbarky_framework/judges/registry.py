@@ -34,3 +34,16 @@ def register_judge(judge: BaseJudge) -> BaseJudge:
 
 def get_judge(name: str) -> BaseJudge:
     return default_registry.get(name)
+
+
+def seed_default_judges(registry: JudgeRegistry | None = None) -> JudgeRegistry:
+    """Seed a registry with bundled judges. Uses default_registry if None passed."""
+    from .configs.relevance import make_relevance_judge
+    from .configs.coherence import make_coherence_judge
+    from .configs.groundedness import make_groundedness_judge
+
+    r = registry or default_registry
+    r.register(make_relevance_judge())
+    r.register(make_coherence_judge())
+    r.register(make_groundedness_judge())
+    return r
