@@ -28,10 +28,9 @@ def test_example_evalsets_load(rel):
 
 def test_intent_example_runs_offline(tmp_path, monkeypatch):
     monkeypatch.chdir(Path(__file__).parents[1])
-    exit_code = main(
-        ["run", "--config", "examples/config/intent.yaml", "--output-dir", str(tmp_path)]
-    )
-    assert exit_code == 0
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", "examples/config/intent.yaml", "--output-dir", str(tmp_path)])
+    assert exc_info.value.code == 0
     report = json.loads((tmp_path / "intent_extraction_report.json").read_text())
     # 2 of 3 responses carry both intent + confidence.
     assert report["summary"]["by_metric"]["intent_schema"]["passed"] == 2

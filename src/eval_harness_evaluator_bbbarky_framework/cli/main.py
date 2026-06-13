@@ -23,7 +23,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
+
+import pydantic
+import yaml
 
 from ..converters.converter import csv_to_evalset
 from ..models.core import EvalSet
@@ -94,12 +98,25 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
-    exit_code: int = args.func(args)
-    return exit_code
+    try:
+        exit_code: int = args.func(args)
+    except FileNotFoundError as exc:
+        print(f"error: file not found — {exc.filename}", file=sys.stderr)
+        sys.exit(1)
+    except yaml.YAMLError as exc:
+        print(f"error: invalid YAML — {exc}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(f"error: invalid JSON — {exc}", file=sys.stderr)
+        sys.exit(1)
+    except pydantic.ValidationError as exc:
+        print(f"error: config validation failed:\n{exc}", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
+    main()

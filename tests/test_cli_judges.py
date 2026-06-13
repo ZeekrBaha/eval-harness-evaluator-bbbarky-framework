@@ -60,9 +60,8 @@ def test_cli_run_with_model_client_and_judge(tmp_path, monkeypatch):
         "  - judge: groundedness\n"
         "    name: groundedness\n"
     )
-    exit_code = main(
-        ["run", "--config", str(tmp_path / "config.yaml"), "--output-dir", str(tmp_path)]
-    )
-    assert exit_code == 0
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", str(tmp_path / "config.yaml"), "--output-dir", str(tmp_path)])
+    assert exc_info.value.code == 0
     report = json.loads((tmp_path / "rag_report.json").read_text())
     assert report["summary"]["by_metric"]["groundedness"]["passed"] == 1
