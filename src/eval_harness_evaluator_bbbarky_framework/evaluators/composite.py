@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from ..models.core import EvalResult, Invocation
 from .base import Evaluator
 
@@ -19,9 +21,9 @@ class CompositeEvaluator(Evaluator):
     async def evaluate_invocations(
         self, invocations: list[Invocation], expected: object | None
     ) -> EvalResult:
-        sub_results = []
-        for evaluator in self.evaluators:
-            sub_results.append(await evaluator.evaluate_invocations(invocations, expected))
+        sub_results = list(await asyncio.gather(
+            *[ev.evaluate_invocations(invocations, expected) for ev in self.evaluators]
+        ))
         score = sum(r.score for r in sub_results) / len(sub_results)
         passed = all(r.passed for r in sub_results)
         return EvalResult(

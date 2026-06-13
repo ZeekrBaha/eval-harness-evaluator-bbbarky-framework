@@ -78,3 +78,51 @@ async def test_run_suite_runs_every_evaluator_over_every_case():
     )
     assert {r["metric"] for r in rows} == {"a", "b"}
     assert len(rows) == 2
+
+
+# --- concurrency ------------------------------------------------------------
+
+import asyncio
+import time
+
+from eval_harness_evaluator_bbbarky_framework.evaluators.base import Evaluator
+from eval_harness_evaluator_bbbarky_framework.models.core import EvalResult
+
+
+class SlowEvaluator(Evaluator):
+    """Sleeps 0.05 s per call to make sequential vs concurrent timing obvious."""
+
+    metric_name = "slow"
+
+    async def evaluate_invocations(self, invocations, expected):
+        await asyncio.sleep(0.05)
+        return EvalResult(
+            score=1.0,
+            passed=True,
+            per_invocation=[],
+        )
+
+
+async def test_run_suite_executes_concurrently():
+    """4 cases × 1 evaluator (each 0.05 s) must finish in < 0.15 s total.
+
+    Sequential execution would take ~0.20 s; concurrent takes ~0.05 s.
+    """
+    evalset = EvalSet(
+        name="perf",
+        cases=[
+            _case("c1", "a", "a"),
+            _case("c2", "b", "b"),
+            _case("c3", "c", "c"),
+            _case("c4", "d", "d"),
+        ],
+    )
+    start = time.monotonic()
+    rows = await run_suite(evalset, {"slow": SlowEvaluator()})
+    elapsed = time.monotonic() - start
+
+    assert len(rows) == 4
+    assert elapsed < 0.15, (
+        f"run_suite took {elapsed:.3f}s — expected concurrent execution (~0.05s), "
+        f"got sequential-like timing (~0.20s)"
+    )

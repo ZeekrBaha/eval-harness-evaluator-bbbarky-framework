@@ -6,34 +6,43 @@ without importing evaluator types. Each row is one (case, evaluator) pair.
 
 from __future__ import annotations
 
+import asyncio
+
 from ..evaluators.base import Evaluator
 from ..models.core import EvalSet
 
 
-async def run_suite(evalset: EvalSet, evaluators: dict[str, Evaluator]) -> list[dict]:
+async def run_suite(
+    evalset: EvalSet,
+    evaluators: dict[str, Evaluator],
+    max_concurrency: int = 20,
+) -> list[dict]:
     """Run all evaluators over all cases; return one result row per pair."""
-    rows: list[dict] = []
-    for case in evalset.cases:
-        kind = case.metadata.get("kind", "all")
-        lang = case.metadata.get("lang", "all")
-        for metric_name, evaluator in evaluators.items():
+    semaphore = asyncio.Semaphore(max_concurrency)
+
+    async def _evaluate_pair(case, metric_name, evaluator):
+        async with semaphore:
             result = await evaluator.evaluate_invocations(case.invocations, case.expected)
-            rows.append(
-                {
-                    "id": case.id,
-                    "metric": metric_name,
-                    "kind": kind,
-                    "lang": lang,
-                    "success": result.passed,
-                    "score": result.score,
-                    "details": _representative_details(result),
-                    "per_invocation": [
-                        {"score": p.score, "passed": p.passed, **p.details}
-                        for p in result.per_invocation
-                    ],
-                }
-            )
-    return rows
+        return {
+            "id": case.id,
+            "metric": metric_name,
+            "kind": case.metadata.get("kind", "all"),
+            "lang": case.metadata.get("lang", "all"),
+            "success": result.passed,
+            "score": result.score,
+            "details": _representative_details(result),
+            "per_invocation": [
+                {"score": p.score, "passed": p.passed, **p.details}
+                for p in result.per_invocation
+            ],
+        }
+
+    tasks = [
+        _evaluate_pair(case, metric_name, evaluator)
+        for case in evalset.cases
+        for metric_name, evaluator in evaluators.items()
+    ]
+    return list(await asyncio.gather(*tasks))
 
 
 def _representative_details(result) -> dict:
