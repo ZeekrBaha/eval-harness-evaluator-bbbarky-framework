@@ -12,17 +12,23 @@ from eval_harness_evaluator_bbbarky_framework.runner.config import (
 
 
 def test_run_config_accepts_string_and_dict_evaluators():
+    label_path = (
+        "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
+    )
+    schema_path = (
+        "eval_harness_evaluator_bbbarky_framework.evaluators.json_schema:JsonSchemaEvaluator"
+    )
     config = RunConfig.model_validate(
         {
             "suite": "demo",
             "evalsets": ["x.json"],
             "evaluators": [
-                "mod:Cls",
-                {"type": "mod:Other", "name": "schema", "params": {"required_keys": ["a"]}},
+                label_path,
+                {"type": schema_path, "name": "schema", "params": {"required_keys": ["a"]}},
             ],
         }
     )
-    assert config.evaluators[0] == "mod:Cls"
+    assert config.evaluators[0] == label_path
     assert config.evaluators[1]["name"] == "schema"
 
 

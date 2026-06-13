@@ -27,13 +27,18 @@ def _case(cid, response, expected, **metadata):
 def test_load_config_parses_required_fields(tmp_path):
     cfg = tmp_path / "c.yaml"
     cfg.write_text(
-        "suite: demo\nevalsets:\n  - data/regression.evalset.json\nevaluators:\n  - mod:Cls\n"
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n"
+        "  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator\n"
     )
     config = load_config(str(cfg))
     assert isinstance(config, RunConfig)
     assert config.suite == "demo"
     assert config.evalsets == ["data/regression.evalset.json"]
-    assert config.evaluators == ["mod:Cls"]
+    assert config.evaluators == [
+        "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
+    ]
 
 
 def test_load_config_rejects_empty_evalsets(tmp_path):
@@ -48,6 +53,30 @@ def test_load_class_from_path_imports_evaluator():
         "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
     )
     assert cls is LabelMatchEvaluator
+
+
+def test_load_config_rejects_unknown_module(tmp_path):
+    """Evaluator with an unimportable module should raise ValueError at load_config time."""
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n  - nonexistent.module:FakeEval\n"
+    )
+    with pytest.raises(ValueError):
+        load_config(str(cfg))
+
+
+def test_load_config_rejects_unknown_class(tmp_path):
+    """Evaluator pointing to a missing class should raise ValueError at load_config time."""
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:NoSuchClass\n"
+    )
+    with pytest.raises(ValueError):
+        load_config(str(cfg))
 
 
 # --- run_suite ----------------------------------------------------------
