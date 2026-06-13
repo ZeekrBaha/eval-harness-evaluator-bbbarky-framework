@@ -23,12 +23,11 @@ classifiers = [
 dependencies = [
     "pydantic>=2.0.0",
     "PyYAML>=6.0.0",
-    "litellm>=1.75.5",
-    "rich>=13.0.0",
-    "tqdm>=4.0.0",
+    "litellm>=1.75.5,<2",
 ]
 
 [project.optional-dependencies]
+progress = ["rich>=13.0.0", "tqdm>=4.0.0"]
 adk = ["google-adk>=1.22.0"]
 phoenix = [
     "arize-phoenix-client",

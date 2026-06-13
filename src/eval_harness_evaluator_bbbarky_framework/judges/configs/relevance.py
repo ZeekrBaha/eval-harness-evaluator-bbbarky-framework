@@ -3,19 +3,33 @@
 from __future__ import annotations
 
 from ..base_judge import BaseJudge
-from ..registry import register_judge
 
-relevance_judge = register_judge(
-    BaseJudge(
+
+def make_relevance_judge() -> BaseJudge:
+    return BaseJudge(
         name="relevance",
         system_prompt=(
-            "You are a strict evaluator of answer relevance. Decide whether the "
-            "answer actually addresses the user's question. Respond with a single "
-            "JSON object containing the keys 'label', 'issues' (a list), and "
-            "'rationale'. Use the label 'A - Good' when the answer is on-topic and "
-            "'B - Bad' otherwise."
+            "You are an expert evaluator of answer relevance.\n\n"
+            "TASK: Score how well the answer addresses the user's question on a 1-5 scale.\n\n"
+            "RUBRIC:\n"
+            "5 - Fully relevant: directly addresses all parts of the question.\n"
+            "4 - Mostly relevant: addresses the main intent; minor aspect omitted.\n"
+            "3 - Partially relevant: addresses some parts but misses key aspects.\n"
+            "2 - Marginally relevant: touches the topic but does not answer.\n"
+            "1 - Irrelevant: off-topic or completely unhelpful.\n\n"
+            "EDGE CASES:\n"
+            "- A clarifying question back to the user scores <= 2.\n"
+            "- A correct answer to a different question scores <= 2.\n"
+            "- Multi-part questions: score reflects the worst-addressed sub-question.\n\n"
+            "INSTRUCTIONS:\n"
+            "1. State which parts of the question are addressed and which are not.\n"
+            "2. Assign a score from the rubric.\n"
+            "3. Respond ONLY with JSON — no prose outside the JSON.\n"
+            "   Required keys: 'score' (int 1-5), 'label' (string '1' through '5'), "
+            "'issues' (list of strings, empty if none), 'rationale' (string), "
+            "'confidence' (float 0.0-1.0)."
         ),
         user_prompt_template="Question:\n{question}\n\nAnswer:\n{answer}",
-        passing_labels=["A - Good"],
+        passing_labels=["4", "5"],
+        rubric_version="v2",
     )
-)

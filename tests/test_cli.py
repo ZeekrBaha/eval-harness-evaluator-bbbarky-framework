@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from eval_harness_evaluator_bbbarky_framework.cli.main import main
 
 
@@ -35,9 +37,10 @@ def test_cli_run_writes_json_and_markdown_reports(tmp_path):
         "  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator\n"
     )
 
-    exit_code = main(["run", "--config", str(config_path), "--output-dir", str(tmp_path)])
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", str(config_path), "--output-dir", str(tmp_path)])
 
-    assert exit_code == 0
+    assert exc_info.value.code == 0
     report_json = tmp_path / "demo_report.json"
     report_md = tmp_path / "demo_report.md"
     assert report_json.exists()
@@ -52,11 +55,26 @@ def test_cli_convert_csv_to_evalset(tmp_path):
     csv_path.write_text("id,input,response,expected\nc1,hi,Sales,Sales\n")
     out_path = tmp_path / "out.evalset.json"
 
-    exit_code = main(
-        ["convert", "--input", str(csv_path), "--output", str(out_path), "--suite", "demo"]
-    )
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            ["convert", "--input", str(csv_path), "--output", str(out_path), "--suite", "demo"]
+        )
 
-    assert exit_code == 0
+    assert exc_info.value.code == 0
     data = json.loads(out_path.read_text())
     assert data["name"] == "demo"
     assert data["cases"][0]["id"] == "c1"
+
+
+def test_run_nonexistent_config_exits_1():
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", "nonexistent.yaml"])
+    assert exc_info.value.code == 1
+
+
+def test_run_bad_yaml_exits_1(tmp_path):
+    bad_yaml = tmp_path / "bad.yaml"
+    bad_yaml.write_text("key: [unclosed\n")
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", str(bad_yaml)])
+    assert exc_info.value.code == 1

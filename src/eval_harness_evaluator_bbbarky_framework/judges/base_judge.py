@@ -7,11 +7,34 @@ deliberately lenient: models often wrap JSON in prose or fenced code blocks.
 from __future__ import annotations
 
 import json
-import re
 
 from ..models.core import JudgeResult
 
-_JSON_OBJECT = re.compile(r"\{.*\}", re.DOTALL)
+
+def _extract_first_json_object(raw: str) -> str | None:
+    start = raw.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(raw[start:], start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+        elif not in_string:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return raw[start: i + 1]
+    return None
 
 
 class BaseJudge:
@@ -41,21 +64,26 @@ class BaseJudge:
 
     def parse(self, raw: str) -> JudgeResult:
         """Extract the JSON verdict from a raw model response."""
-        match = _JSON_OBJECT.search(raw)
-        if not match:
+        extracted = _extract_first_json_object(raw)
+        if extracted is None:
             return self._error_result(raw, "unparseable judge response")
         try:
-            data = json.loads(match.group(0))
+            data = json.loads(extracted)
         except json.JSONDecodeError:
             return self._error_result(raw, "invalid JSON in judge response")
         label = str(data.get("label", ""))
         confidence = data.get("confidence")
+        # Numeric 1-5 rubric: a single digit string drives a proportional score.
+        if label.isdigit() and 1 <= int(label) <= 5:
+            score = int(label) / 5.0
+        else:
+            score = 1.0 if label in self.passing_labels else 0.0
         return JudgeResult(
             label=label,
             issues=list(data.get("issues", [])),
             rationale=str(data.get("rationale", "")),
             raw_response=raw,
-            score=1.0 if label in self.passing_labels else 0.0,
+            score=score,
             confidence=float(confidence) if confidence is not None else None,
             rubric_version=self.rubric_version,
         )

@@ -2,6 +2,8 @@
 
 import json
 
+import pytest
+
 from eval_harness_evaluator_bbbarky_framework.cli.main import main
 from eval_harness_evaluator_bbbarky_framework.runner.config import (
     RunConfig,
@@ -10,17 +12,23 @@ from eval_harness_evaluator_bbbarky_framework.runner.config import (
 
 
 def test_run_config_accepts_string_and_dict_evaluators():
+    label_path = (
+        "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
+    )
+    schema_path = (
+        "eval_harness_evaluator_bbbarky_framework.evaluators.json_schema:JsonSchemaEvaluator"
+    )
     config = RunConfig.model_validate(
         {
             "suite": "demo",
             "evalsets": ["x.json"],
             "evaluators": [
-                "mod:Cls",
-                {"type": "mod:Other", "name": "schema", "params": {"required_keys": ["a"]}},
+                label_path,
+                {"type": schema_path, "name": "schema", "params": {"required_keys": ["a"]}},
             ],
         }
     )
-    assert config.evaluators[0] == "mod:Cls"
+    assert config.evaluators[0] == label_path
     assert config.evaluators[1]["name"] == "schema"
 
 
@@ -76,7 +84,8 @@ def test_cli_run_with_parameterized_evaluator(tmp_path):
         "    params:\n"
         "      required_keys: [intent, confidence]\n"
     )
-    exit_code = main(["run", "--config", str(config_path), "--output-dir", str(tmp_path)])
-    assert exit_code == 0
+    with pytest.raises(SystemExit) as exc_info:
+        main(["run", "--config", str(config_path), "--output-dir", str(tmp_path)])
+    assert exc_info.value.code == 0
     report = json.loads((tmp_path / "intent_report.json").read_text())
     assert report["summary"]["by_metric"]["intent_schema"]["passed"] == 1

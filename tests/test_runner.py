@@ -27,13 +27,18 @@ def _case(cid, response, expected, **metadata):
 def test_load_config_parses_required_fields(tmp_path):
     cfg = tmp_path / "c.yaml"
     cfg.write_text(
-        "suite: demo\nevalsets:\n  - data/regression.evalset.json\nevaluators:\n  - mod:Cls\n"
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n"
+        "  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator\n"
     )
     config = load_config(str(cfg))
     assert isinstance(config, RunConfig)
     assert config.suite == "demo"
     assert config.evalsets == ["data/regression.evalset.json"]
-    assert config.evaluators == ["mod:Cls"]
+    assert config.evaluators == [
+        "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
+    ]
 
 
 def test_load_config_rejects_empty_evalsets(tmp_path):
@@ -48,6 +53,30 @@ def test_load_class_from_path_imports_evaluator():
         "eval_harness_evaluator_bbbarky_framework.evaluators.label_match:LabelMatchEvaluator"
     )
     assert cls is LabelMatchEvaluator
+
+
+def test_load_config_rejects_unknown_module(tmp_path):
+    """Evaluator with an unimportable module should raise ValueError at load_config time."""
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n  - nonexistent.module:FakeEval\n"
+    )
+    with pytest.raises(ValueError):
+        load_config(str(cfg))
+
+
+def test_load_config_rejects_unknown_class(tmp_path):
+    """Evaluator pointing to a missing class should raise ValueError at load_config time."""
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(
+        "suite: demo\n"
+        "evalsets:\n  - data/regression.evalset.json\n"
+        "evaluators:\n  - eval_harness_evaluator_bbbarky_framework.evaluators.label_match:NoSuchClass\n"
+    )
+    with pytest.raises(ValueError):
+        load_config(str(cfg))
 
 
 # --- run_suite ----------------------------------------------------------
@@ -78,3 +107,51 @@ async def test_run_suite_runs_every_evaluator_over_every_case():
     )
     assert {r["metric"] for r in rows} == {"a", "b"}
     assert len(rows) == 2
+
+
+# --- concurrency ------------------------------------------------------------
+
+import asyncio
+import time
+
+from eval_harness_evaluator_bbbarky_framework.evaluators.base import Evaluator
+from eval_harness_evaluator_bbbarky_framework.models.core import EvalResult
+
+
+class SlowEvaluator(Evaluator):
+    """Sleeps 0.05 s per call to make sequential vs concurrent timing obvious."""
+
+    metric_name = "slow"
+
+    async def evaluate_invocations(self, invocations, expected):
+        await asyncio.sleep(0.05)
+        return EvalResult(
+            score=1.0,
+            passed=True,
+            per_invocation=[],
+        )
+
+
+async def test_run_suite_executes_concurrently():
+    """4 cases × 1 evaluator (each 0.05 s) must finish in < 0.15 s total.
+
+    Sequential execution would take ~0.20 s; concurrent takes ~0.05 s.
+    """
+    evalset = EvalSet(
+        name="perf",
+        cases=[
+            _case("c1", "a", "a"),
+            _case("c2", "b", "b"),
+            _case("c3", "c", "c"),
+            _case("c4", "d", "d"),
+        ],
+    )
+    start = time.monotonic()
+    rows = await run_suite(evalset, {"slow": SlowEvaluator()})
+    elapsed = time.monotonic() - start
+
+    assert len(rows) == 4
+    assert elapsed < 0.15, (
+        f"run_suite took {elapsed:.3f}s — expected concurrent execution (~0.05s), "
+        f"got sequential-like timing (~0.20s)"
+    )

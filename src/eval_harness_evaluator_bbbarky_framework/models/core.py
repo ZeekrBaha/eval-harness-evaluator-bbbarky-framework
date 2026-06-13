@@ -6,6 +6,8 @@ types that flow through the runner, evaluators, judges, and reporters.
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -24,6 +26,10 @@ class Invocation(BaseModel):
     trace_id: str | None = None
     latency_ms: float | None = None
     turn_index: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
+    started_at: datetime | None = None
 
 
 class EvalCase(BaseModel):
@@ -58,7 +64,7 @@ class EvalSet(BaseModel):
 class PerInvocationResult(BaseModel):
     """Result for a single invocation within a case."""
 
-    score: float
+    score: float = Field(ge=0.0, le=1.0)
     passed: bool
     details: dict = Field(default_factory=dict)
 
@@ -66,7 +72,7 @@ class PerInvocationResult(BaseModel):
 class EvalResult(BaseModel):
     """Aggregate result for one case from one evaluator."""
 
-    score: float
+    score: float = Field(ge=0.0, le=1.0)
     passed: bool
     per_invocation: list[PerInvocationResult] = Field(default_factory=list)
     details: dict = Field(default_factory=dict)
@@ -79,6 +85,9 @@ class JudgeResult(BaseModel):
     issues: list[str] = Field(default_factory=list)
     rationale: str = ""
     raw_response: str = ""
-    score: float = 0.0
-    confidence: float | None = None
+    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     rubric_version: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None

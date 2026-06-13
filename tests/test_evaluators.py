@@ -32,31 +32,28 @@ def test_evaluator_is_abstract():
 # --- label match --------------------------------------------------------
 
 
-async def test_label_match_passes_on_exact_label():
+@pytest.mark.parametrize(
+    "response, expected, passed, score",
+    [
+        ("Refund Agent", "Refund Agent", True, 1.0),
+        ("refund agent", "Refund Agent", True, None),
+        ("Sales", ["Refund Agent", "Sales"], True, None),
+        ("Sales", "Refund Agent", False, 0.0),
+    ],
+    ids=[
+        "passes_on_exact_label",
+        "is_case_insensitive",
+        "accepts_list_of_expected",
+        "fails_on_mismatch",
+    ],
+)
+async def test_label_match(response, expected, passed, score):
     ev = LabelMatchEvaluator()
-    result = await ev.evaluate_invocations(inv("q", "Refund Agent"), expected="Refund Agent")
+    result = await ev.evaluate_invocations(inv("q", response), expected=expected)
     assert isinstance(result, EvalResult)
-    assert result.passed is True
-    assert result.score == 1.0
-
-
-async def test_label_match_is_case_insensitive():
-    ev = LabelMatchEvaluator()
-    result = await ev.evaluate_invocations(inv("q", "refund agent"), expected="Refund Agent")
-    assert result.passed is True
-
-
-async def test_label_match_accepts_list_of_expected():
-    ev = LabelMatchEvaluator()
-    result = await ev.evaluate_invocations(inv("q", "Sales"), expected=["Refund Agent", "Sales"])
-    assert result.passed is True
-
-
-async def test_label_match_fails_on_mismatch():
-    ev = LabelMatchEvaluator()
-    result = await ev.evaluate_invocations(inv("q", "Sales"), expected="Refund Agent")
-    assert result.passed is False
-    assert result.score == 0.0
+    assert result.passed is passed
+    if score is not None:
+        assert result.score == score
 
 
 # --- scorers ------------------------------------------------------------
@@ -82,6 +79,21 @@ def test_fuzzy_f1_scorer_identical_is_one():
 def test_fuzzy_f1_scorer_disjoint_is_zero():
     s = FuzzyF1Scorer()
     assert s.score("alpha", "omega") == 0.0
+
+
+def test_fuzzy_f1_handles_repeated_tokens_correctly():
+    # "cat cat cat" vs "cat dog": with multiset F1
+    # pred tokens = [cat, cat, cat], ref tokens = [cat, dog]
+    # overlap = min(3,1) for cat = 1; precision = 1/3, recall = 1/2
+    # F1 = 2 * (1/3) * (1/2) / (1/3 + 1/2) = (1/3) / (5/6) = 2/5 = 0.40
+    s = FuzzyF1Scorer()
+    assert s.score("cat cat cat", "cat dog") == pytest.approx(0.40, abs=1e-6)
+
+
+def test_contains_keywords_no_substring_false_positive():
+    # keyword "is" should NOT match inside "this" or "crisis"
+    s = ContainsKeywordsScorer(["is"])
+    assert s.score("this crisis", None) == 0.0
 
 
 async def test_scorer_evaluator_uses_scorer_and_threshold():

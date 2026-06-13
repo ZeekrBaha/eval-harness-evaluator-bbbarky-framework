@@ -1,5 +1,10 @@
 """Tests for core data models: Invocation, EvalCase, EvalSet, EvalResult, JudgeResult."""
 
+from datetime import datetime
+
+import pytest
+from pydantic import ValidationError
+
 from eval_harness_evaluator_bbbarky_framework.models.core import (
     EvalCase,
     EvalResult,
@@ -68,3 +73,49 @@ def test_judge_result_carries_label_rationale_and_score():
     assert jr.label == "A - Good"
     assert jr.score == 1.0
     assert jr.issues == []
+
+
+# --- new tests for token/cost/timestamp fields and validators ---
+
+
+def test_invocation_accepts_token_fields():
+    now = datetime.now()
+    inv = Invocation(
+        user_input="hello",
+        final_response="hi",
+        input_tokens=10,
+        output_tokens=5,
+        cost_usd=0.001,
+        started_at=now,
+    )
+    assert inv.input_tokens == 10
+    assert inv.output_tokens == 5
+    assert inv.cost_usd == 0.001
+    assert inv.started_at == now
+
+
+def test_judge_result_accepts_token_fields():
+    jr = JudgeResult(
+        label="A",
+        input_tokens=50,
+        output_tokens=20,
+        cost_usd=0.002,
+    )
+    assert jr.input_tokens == 50
+    assert jr.output_tokens == 20
+    assert jr.cost_usd == 0.002
+
+
+def test_eval_result_score_rejects_out_of_range():
+    with pytest.raises(ValidationError):
+        EvalResult(score=1.5, passed=True)
+
+
+def test_per_invocation_score_rejects_out_of_range():
+    with pytest.raises(ValidationError):
+        PerInvocationResult(score=-0.1, passed=False)
+
+
+def test_judge_result_confidence_rejects_out_of_range():
+    with pytest.raises(ValidationError):
+        JudgeResult(label="A", confidence=1.5)

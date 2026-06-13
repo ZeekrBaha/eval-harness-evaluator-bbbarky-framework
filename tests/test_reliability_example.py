@@ -3,6 +3,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from eval_harness_evaluator_bbbarky_framework.reliability import agreement_report
 
 DATA = Path(__file__).parents[1] / "examples" / "reliability" / "human_vs_judge.json"
@@ -16,5 +18,8 @@ def test_reliability_example_produces_agreement_report():
     assert report["n"] == len(items)
     # 6 of 8 agree
     assert report["accuracy"] == 0.75
-    assert -1.0 <= report["kappa"] <= 1.0
+    # kappa = (0.75 - 0.5) / (1 - 0.5) = 0.5 for balanced binary labels
+    assert isinstance(report["kappa"], float)
+    assert report["kappa"] != 0.0  # not degenerate
+    assert report["kappa"] == pytest.approx(0.5)
     assert "A - Good" in report["confusion"]

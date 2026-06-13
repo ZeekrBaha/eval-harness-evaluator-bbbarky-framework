@@ -93,8 +93,13 @@ def test_build_report_includes_suite_and_summary():
 
 def test_to_json_is_parseable():
     report = build_report("demo", _rows())
-    parsed = json.loads(to_json(report))
-    assert parsed["suite"] == "demo"
+    report_json = json.loads(to_json(report))
+    assert report_json["suite"] == "demo"
+    assert "suite" in report_json
+    assert "summary" in report_json
+    assert "rows" in report_json
+    assert "schema_version" in report_json
+    assert "run_id" in report_json
 
 
 def test_to_markdown_mentions_suite_and_pass_rate():
@@ -102,3 +107,21 @@ def test_to_markdown_mentions_suite_and_pass_rate():
     md = to_markdown(report)
     assert "demo" in md
     assert "Pass rate" in md or "pass rate" in md
+
+
+def test_summarize_uses_custom_z_value():
+    rows = _rows()
+    summary_95 = summarize(rows)
+    summary_99 = summarize(rows, z=2.576)
+    assert summary_99["ci_z"] == 2.576
+    assert summary_99["ci_low"] < summary_95["ci_low"]
+    assert summary_99["ci_high"] > summary_95["ci_high"]
+
+
+def test_build_report_includes_metadata():
+    result = build_report("my_suite", [])
+    assert result["schema_version"] == "1.1"
+    assert "generated_at" in result and (
+        result["generated_at"].endswith("Z") or "+00:00" in result["generated_at"]
+    )
+    assert "run_id" in result and len(result["run_id"]) == 36

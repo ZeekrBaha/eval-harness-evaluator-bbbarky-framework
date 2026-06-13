@@ -10,7 +10,7 @@ from eval_harness_evaluator_bbbarky_framework.runner.core import run_suite
 
 class GoodClient:
     async def generate(self, messages, **opts):
-        return '{"label": "A - Good", "rationale": "supported", "confidence": 0.9}'
+        return '{"label": "5", "rationale": "supported", "confidence": 0.9}'
 
 
 class BadClient:
@@ -25,7 +25,7 @@ async def test_llm_judge_details_include_confidence_and_rubric_version():
     )
     details = result.per_invocation[0].details
     assert details["confidence"] == 0.9
-    assert details["rubric_version"] == "v1"
+    assert details["rubric_version"] == "v2"
 
 
 async def test_run_suite_row_surfaces_judge_details():

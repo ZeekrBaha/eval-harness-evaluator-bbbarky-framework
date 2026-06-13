@@ -17,7 +17,7 @@ async def test_context_reaches_the_judge_prompt():
     class FakeClient:
         async def generate(self, messages, **opts):
             captured["user"] = messages[1]["content"]
-            return '{"label": "A - Good", "rationale": "supported"}'
+            return '{"label": "5", "rationale": "supported"}'
 
     judge = get_judge("groundedness")
     ev = LlmJudgeEvaluator(judge=judge, model_client=FakeClient())

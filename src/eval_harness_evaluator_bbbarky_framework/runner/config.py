@@ -8,6 +8,21 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 
+def _assert_importable(path: str) -> None:
+    """Raise ValueError if ``path`` cannot be resolved to a real class."""
+    module_path, class_name = path.split(":", 1)
+    try:
+        module = importlib.import_module(module_path)
+    except ImportError as exc:
+        raise ValueError(
+            f"cannot import module {module_path!r} from evaluator spec {path!r}: {exc}"
+        ) from exc
+    if not hasattr(module, class_name):
+        raise ValueError(
+            f"module {module_path!r} has no attribute {class_name!r} (from spec {path!r})"
+        )
+
+
 class RunConfig(BaseModel):
     """Parsed evaluation run configuration.
 
@@ -27,6 +42,18 @@ class RunConfig(BaseModel):
         if not value:
             raise ValueError("config must list at least one evalset")
         return value
+
+    @field_validator("evaluators")
+    @classmethod
+    def _validate_evaluator_paths(cls, specs: list) -> list:
+        for spec in specs:
+            if isinstance(spec, str) and ":" in spec:
+                _assert_importable(spec)
+            elif isinstance(spec, dict) and "type" in spec:
+                type_val = spec["type"]
+                if isinstance(type_val, str) and ":" in type_val:
+                    _assert_importable(type_val)
+        return specs
 
 
 def load_config(path: str) -> RunConfig:
