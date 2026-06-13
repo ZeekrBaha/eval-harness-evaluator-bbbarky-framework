@@ -27,3 +27,4 @@ examples/agent_session_export/exported_rag_suite.evalset.json
 
 # OS
 .DS_Store
+.worktrees/
